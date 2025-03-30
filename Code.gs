@@ -143,12 +143,16 @@ function readFirestoreData() {
   // Store current column formatting settings before clearing
   const lastColumn = sheet.getLastColumn();
   const lastRow = sheet.getLastRow();
-  const columnFormats = [];
+  const columnFormats = {};
   
   if (lastColumn > 0) {
+    // Get the current headers to map column formats by header name
+    const currentHeaders = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+    
     for (let col = 1; col <= lastColumn; col++) {
+      const header = currentHeaders[col - 1];
       const columnRange = sheet.getRange(1, col, lastRow || 1, 1);
-      columnFormats[col] = {
+      columnFormats[header] = {
         wrap: columnRange.getWrap(),
         width: sheet.getColumnWidth(col)
       };
@@ -255,10 +259,16 @@ function readFirestoreData() {
       const allColumnsRange = sheet.getRange(1, 1, rows.length, headers.length);
       allColumnsRange.setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
       
-      // Set reasonable default width for all columns
-      headers.forEach((_, index) => {
+      // Restore column formats for existing columns
+      headers.forEach((header, index) => {
         const colIndex = index + 1;
-        sheet.setColumnWidth(colIndex, 150);
+        if (columnFormats[header]) {
+          // Restore previous width and wrap settings for existing columns
+          const columnRange = sheet.getRange(1, colIndex, rows.length, 1);
+          columnRange.setWrap(columnFormats[header].wrap);
+          sheet.setColumnWidth(colIndex, columnFormats[header].width);
+        }
+        // Don't set any formatting for new columns - let them use sheet default
       });
       
       // Add timestamp of last update
