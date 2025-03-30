@@ -334,13 +334,13 @@ function writeToFirestore() {
       continue; // Skip rows without id
     }
     
-    const documentUrl = `${baseUrl}/${collectionPath}/${docId}`;
     const fields = {};
+    const updateMask = [];  // Track which fields we're updating
     
     // Build the fields object using column indices
     WRITABLE_COLUMNS.forEach(header => {
       const value = row[columnIndices[header]];
-      if (value !== '') {
+      if (value !== '') {  // Only include non-empty values
         let fieldValue;
         
         if (typeof value === 'number') {
@@ -379,11 +379,16 @@ function writeToFirestore() {
         }
         
         fields[header] = fieldValue;
+        updateMask.push(header);  // Add field to update mask
       }
     });
     
     // Only make the request if there are fields to update
     if (Object.keys(fields).length > 0) {
+      // Add updateMask to URL parameters
+      const updateMaskParam = updateMask.map(field => `updateMask.fieldPaths=${field}`).join('&');
+      const documentUrl = `${baseUrl}/${collectionPath}/${docId}?${updateMaskParam}`;
+      
       const options = {
         'method': 'PATCH',
         'contentType': 'application/json',
@@ -400,7 +405,7 @@ function writeToFirestore() {
         if (responseCode === 200) {
           successCount++;
           // Log successful update
-          Logger.log(`Updated document ${docId} with fields: ${Object.keys(fields).join(', ')}`);
+          Logger.log(`Updated document ${docId} with fields: ${updateMask.join(', ')}`);
         } else {
           errorCount++;
           Logger.log(`Error updating document ${docId}: ${response.getContentText()}`);
@@ -538,11 +543,13 @@ function writeSelectedRowToFirestore() {
   
   // Prepare the fields to write
   const fields = {};
+  const updateMask = [];  // Track which fields we're updating
+  
   WRITABLE_COLUMNS.forEach(header => {
     const colIndex = headers.indexOf(header);
     if (colIndex !== -1) {
       const value = rowData[colIndex];
-      if (value !== '') {
+      if (value !== '') {  // Only include non-empty values
         let fieldValue;
         
         if (typeof value === 'number') {
@@ -581,39 +588,45 @@ function writeSelectedRowToFirestore() {
         }
         
         fields[header] = fieldValue;
+        updateMask.push(header);  // Add field to update mask
       }
     }
   });
   
-  // Write to Firestore
-  const config = getFirebaseConfig();
-  const baseUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/(default)/documents`;
-  const documentUrl = `${baseUrl}/${collectionPath}/${docId}`;
-  
-  const options = {
-    'method': 'PATCH',
-    'contentType': 'application/json',
-    'muteHttpExceptions': true,
-    'payload': JSON.stringify({
-      'fields': fields
-    })
-  };
-  
-  try {
-    const response = UrlFetchApp.fetch(documentUrl, options);
-    const responseCode = response.getResponseCode();
+  // Only make the request if there are fields to update
+  if (Object.keys(fields).length > 0) {
+    const config = getFirebaseConfig();
+    const baseUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/(default)/documents`;
     
-    if (responseCode === 200) {
-      SpreadsheetApp.getActiveSpreadsheet().toast(
-        `Successfully updated document ${docId}`,
-        'Success'
-      );
-      Logger.log(`Updated document ${docId} with fields: ${Object.keys(fields).join(', ')}`);
-    } else {
-      ui.alert('Error', `Failed to update document: ${response.getContentText()}`, ui.ButtonSet.OK);
+    // Add updateMask to URL parameters
+    const updateMaskParam = updateMask.map(field => `updateMask.fieldPaths=${field}`).join('&');
+    const documentUrl = `${baseUrl}/${collectionPath}/${docId}?${updateMaskParam}`;
+    
+    const options = {
+      'method': 'PATCH',
+      'contentType': 'application/json',
+      'muteHttpExceptions': true,
+      'payload': JSON.stringify({
+        'fields': fields
+      })
+    };
+    
+    try {
+      const response = UrlFetchApp.fetch(documentUrl, options);
+      const responseCode = response.getResponseCode();
+      
+      if (responseCode === 200) {
+        SpreadsheetApp.getActiveSpreadsheet().toast(
+          `Successfully updated document ${docId}\nUpdated fields: ${updateMask.join(', ')}`,
+          'Success'
+        );
+        Logger.log(`Updated document ${docId} with fields: ${updateMask.join(', ')}`);
+      } else {
+        ui.alert('Error', `Failed to update document: ${response.getContentText()}`, ui.ButtonSet.OK);
+      }
+    } catch (error) {
+      ui.alert('Error', `Failed to write to Firestore: ${error.message}`, ui.ButtonSet.OK);
     }
-  } catch (error) {
-    ui.alert('Error', `Failed to write to Firestore: ${error.message}`, ui.ButtonSet.OK);
   }
 }
 
