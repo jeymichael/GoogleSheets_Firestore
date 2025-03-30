@@ -55,20 +55,22 @@ function getFirebaseConfig() {
   return config;
 }
 
-const collectionPath = 'quizzes';  // Replace with your collection name
+const collectionPath = 'quiz_questions';  // Replace with your collection name
 
 // Define your preferred column order
 const COLUMN_ORDER = [
-  'Document ID',
+  'id',
   'difficulty',
   'year',
   'audioUrl',
-  'correctAnswer',
-  'choices',
+  'answer',
+  'choice2',
+  'choice3',
+  'choice4',
   'videoUrl',
   'updatedAt',
   'createdAt',
-  'category'  // Add all your preferred columns in order
+  'schemaVersion'  // Add all your preferred columns in order
 ];
 
 // Define which columns should be written back to Firestore
@@ -76,10 +78,11 @@ const WRITABLE_COLUMNS = [
   'difficulty',
   'year',
   'audioUrl',
-  'correctAnswer',
-  'choices',
-  'videoUrl',
-  'category'
+  'answer',
+  'choice2',
+  'choice3',
+  'choice4',
+  'videoUrl'
   // Add any other columns you want to write back
 ];
 
@@ -221,7 +224,7 @@ function readFirestoreData() {
       
       // Fill in values according to header order
       headers.forEach((field, index) => {
-        if (field === 'Document ID') {
+        if (field === 'id') {
           row[index] = docId;
         } else if (doc.fields && doc.fields[field]) {
           const value = extractFieldValue(doc.fields[field]);
@@ -281,12 +284,12 @@ function writeToFirestore() {
   }
   
   const headers = data[0];
-  const docIdIndex = headers.indexOf('Document ID');
+  const docIdIndex = headers.indexOf('id');
   
-  // Validate Document ID column
+  // Validate id column
   if (docIdIndex === -1) {
-    SpreadsheetApp.getActiveSpreadsheet().toast('Document ID column not found', 'Error');
-    throw new Error('Document ID column not found');
+    SpreadsheetApp.getActiveSpreadsheet().toast('id column not found', 'Error');
+    throw new Error('id column not found');
   }
   
   // Validate writable columns
@@ -327,8 +330,8 @@ function writeToFirestore() {
     const docId = row[docIdIndex];
     
     if (!docId) {
-      Logger.log(`Skipping row ${i + 1}: No Document ID`);
-      continue; // Skip rows without document ID
+      Logger.log(`Skipping row ${i + 1}: No id`);
+      continue; // Skip rows without id
     }
     
     const documentUrl = `${baseUrl}/${collectionPath}/${docId}`;
@@ -428,10 +431,10 @@ function validateColumns() {
     };
   }
   
-  if (!headers.includes('Document ID')) {
+  if (!headers.includes('id')) {
     return {
       valid: false,
-      message: 'Document ID column is required'
+      message: 'id column is required'
     };
   }
   
@@ -501,16 +504,16 @@ function writeSelectedRowToFirestore() {
   // Get the row data
   const rowData = sheet.getRange(selectedRow, 1, 1, headers.length).getValues()[0];
   
-  // Find Document ID
-  const docIdIndex = headers.indexOf('Document ID');
+  // Find id
+  const docIdIndex = headers.indexOf('id');
   if (docIdIndex === -1) {
-    ui.alert('Error', 'Document ID column not found', ui.ButtonSet.OK);
+    ui.alert('Error', 'id column not found', ui.ButtonSet.OK);
     return;
   }
   
   const docId = rowData[docIdIndex];
   if (!docId) {
-    ui.alert('Error', 'Selected row has no Document ID', ui.ButtonSet.OK);
+    ui.alert('Error', 'Selected row has no id', ui.ButtonSet.OK);
     return;
   }
   
@@ -518,7 +521,7 @@ function writeSelectedRowToFirestore() {
   const confirmMessage = 
     `Are you sure you want to write this row to Firestore?\n\n` +
     `Collection: ${collectionPath}\n` +
-    `Document ID: ${docId}\n` +
+    `id: ${docId}\n` +
     `Fields to write: ${WRITABLE_COLUMNS.join(', ')}\n\n` +
     `This will update the existing document in Firestore.`;
     
